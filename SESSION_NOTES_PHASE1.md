@@ -86,7 +86,7 @@ guidance, matching the rules above.
   description telling the agent to stop asking and conclude — a safety net so
   the loop can't run forever, backed by `or is_final_round` in the code in
   case the model ever ignores the instruction.
-- `present_scope` (the next `@listen` step) prints the finished
+- `create_research_brief` (the next `@listen` step) prints the finished
   `research_brief` — this is the artifact the next phase (actual research)
   will consume.
 

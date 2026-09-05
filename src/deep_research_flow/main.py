@@ -59,12 +59,12 @@ class ScopingFlow(Flow[ResearchScopeState]):
             self.state.clarifying_questions_asked += 1
 
     @listen(define_scope)
-    def present_scope(self):
+    def create_research_brief(self):
         print("\n=== Research Brief ===")
         print(self.state.research_brief)
         return self.state.research_brief
 
-    @listen(present_scope)
+    @listen(create_research_brief)
     def conduct_research(self):
         result = ResearchCrew().crew().kickoff(
             inputs={

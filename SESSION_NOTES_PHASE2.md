@@ -94,10 +94,11 @@ alongside the `anthropic` extra.
 
 ## Flow wiring (`main.py`)
 
-`ScopingFlow` gained a third step after phase 1's `present_scope`:
+`ScopingFlow` gained a third step after phase 1's `create_research_brief`
+(renamed from `present_scope`):
 
 ```python
-@listen(present_scope)
+@listen(create_research_brief)
 def conduct_research(self):
     result = ResearchCrew().crew().kickoff(
         inputs={
