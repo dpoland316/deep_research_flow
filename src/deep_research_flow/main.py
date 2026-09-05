@@ -9,6 +9,8 @@ from deep_research_flow.crews.research_crew.research_crew import ResearchCrew
 from deep_research_flow.crews.scoping_crew.scoping_crew import ScopingCrew
 
 MAX_CLARIFYING_QUESTIONS = 3
+MAX_CONCURRENT_RESEARCH_UNITS = 3
+MAX_RESEARCHER_ITERATIONS = 3
 FINAL_ROUND_NOTICE = (
     "IMPORTANT: This is the final clarification round allowed. Do not ask another "
     "question under any circumstances — mark the scope as clear so the research brief "
@@ -71,6 +73,8 @@ class ScopingFlow(Flow[ResearchScopeState]):
                 "research_brief": self.state.research_brief,
                 "date": date.today().isoformat(),
                 "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S"),
+                "max_concurrent_research_units": MAX_CONCURRENT_RESEARCH_UNITS,
+                "max_researcher_iterations": MAX_RESEARCHER_ITERATIONS,
             }
         )
         self.state.research_findings = result.raw

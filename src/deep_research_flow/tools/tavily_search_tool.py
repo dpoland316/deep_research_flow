@@ -67,6 +67,75 @@ Today's date is {date}.
 """
 
 
+COMPRESS_RESEARCH_SYSTEM_PROMPT = """You are a research assistant that has conducted research on a topic by calling several tools and web searches. Your job is now to clean up the findings, but preserve all of the relevant statements and information that the researcher has gathered. For context, today's date is {date}.
+
+<Task>
+You need to clean up information gathered from tool calls and web searches in the existing messages.
+All relevant information should be repeated and rewritten verbatim, but in a cleaner format.
+The purpose of this step is just to remove any obviously irrelevant or duplicate information.
+For example, if three sources all say "X", you could say "These three sources all stated X".
+Only these fully comprehensive cleaned findings are going to be returned to the user, so it's crucial that you don't lose any information from the raw messages.
+</Task>
+
+<Tool Call Filtering>
+**IMPORTANT**: When processing the research messages, focus only on substantive research content:
+- **Include**: All tavily_search results and findings from web searches
+- **Exclude**: think_tool calls and responses - these are internal agent reflections for decision-making and should not be included in the final research report
+- **Focus on**: Actual information gathered from external sources, not the agent's internal reasoning process
+
+The think_tool calls contain strategic reflections and decision-making notes that are internal to the research process but do not contain factual information that should be preserved in the final report.
+</Tool Call Filtering>
+
+<Guidelines>
+1. Your output findings should be fully comprehensive and include ALL of the information and sources that the researcher has gathered from tool calls and web searches. It is expected that you repeat key information verbatim.
+2. This report can be as long as necessary to return ALL of the information that the researcher has gathered.
+3. In your report, you should return inline citations for each source that the researcher found. Citations must be placed at the sentence/claim level, immediately after the specific statement they support — never a single citation dropped once at the end of an entire paragraph or source block.
+4. You should include a "Sources" section at the end of the report that lists all of the sources the researcher found with corresponding citations, cited against statements in the report.
+5. Make sure to include ALL of the sources that the researcher gathered in the report, and how they were used to answer the question!
+6. It's really important not to lose any sources. A later LLM will be used to merge this report with others, so having all of the sources is critical.
+</Guidelines>
+
+<Output Format>
+The report should be structured like this:
+**List of Queries and Tool Calls Made**
+**Fully Comprehensive Findings**
+**List of All Relevant Sources (with citations in the report)**
+</Output Format>
+
+<Citation Rules>
+- Assign each unique URL a single citation number, and reuse that same number every time you cite it
+- IMPORTANT: Cite at the sentence/claim level. Every sentence or discrete fact drawn from a source must end with that source's citation number — do NOT cite a source only once at the end of a paragraph or block that contains multiple sentences from it. If five consecutive sentences all come from source [2], all five sentences end in [2], not just the last one.
+- When a single sentence combines facts from more than one source, cite all of them, e.g. "...as shown by two independent studies [1][3]."
+- End with ### Sources that lists each source with corresponding numbers
+- IMPORTANT: Number sources sequentially without gaps (1,2,3,4...) in the final list regardless of which sources you choose
+- Example format:
+  Global sea levels are rising faster than previously thought [1]. The rate has accelerated by 0.08 mm/year² over three decades [1]. A separate study reached a similar conclusion using satellite gravimetry [2].
+
+  ### Sources
+  [1] Source Title: URL
+  [2] Source Title: URL
+</Citation Rules>
+
+Critical Reminder: It is extremely important that any information that is even remotely relevant to the user's research topic is preserved verbatim (e.g. don't rewrite it, don't summarize it, don't paraphrase it).
+"""
+
+COMPRESS_RESEARCH_TASK_PROMPT = """All above messages are about research conducted by an AI Researcher for the following research topic:
+
+RESEARCH TOPIC: {research_topic}
+
+Your task is to clean up these research findings while preserving ALL information that is relevant to answering this specific research question.
+
+CRITICAL REQUIREMENTS:
+- DO NOT summarize or paraphrase the information - preserve it verbatim
+- DO NOT lose any details, facts, names, numbers, or specific findings
+- DO NOT filter out information that seems relevant to the research topic
+- Organize the information in a cleaner format but keep all the substance
+- Include ALL sources and citations found during research
+- Remember this research was conducted to answer the specific question above
+
+The cleaned findings will be used for final report generation, so comprehensiveness is critical."""
+
+
 class WebpageSummary(BaseModel):
     summary: str
     key_excerpts: str
@@ -79,23 +148,28 @@ class TavilySearchInput(BaseModel):
 
 
 class TavilySearchTool(BaseTool):
-    """Tavily web search whose results are deduplicated by URL and summarized.
+    """Tavily web search whose results are deduplicated, summarized, and compressed.
 
-    Each result's raw content is condensed by a cheap summarization LLM before
-    being handed back to the calling agent, so the agent's context only ever
-    sees compact, citation-ready summaries rather than raw page dumps.
+    Each result's raw content is condensed by a cheap summarization LLM, then
+    the full set of per-result summaries is compressed into a single
+    comprehensive, citation-preserving report by a second LLM pass before
+    being handed back to the calling agent — so the agent's context only ever
+    sees one clean, deduplicated block of findings rather than raw page dumps
+    or repetitive per-source summaries.
     """
 
     name: str = "tavily_search"
     description: str = (
-        "Search the web for the given query. Results are deduplicated by URL and "
-        "each result's content is summarized before being returned, so the output "
-        "is compact and ready to reason over."
+        "Search the web for the given query. Results are deduplicated by URL, "
+        "each result's content is summarized, and the summaries are then "
+        "compressed into a single comprehensive, source-cited findings report "
+        "before being returned, so the output is compact and ready to reason over."
     )
     args_schema: Type[BaseModel] = TavilySearchInput
 
     max_results: int = 5
     summarizer_llm: str = "openai/gpt-4.1-mini"
+    compressor_llm: str = "openai/gpt-4.1"
 
     def _run(self, query: str) -> str:
         api_key = os.environ.get("TAVILY_API_KEY")
@@ -159,4 +233,26 @@ class TavilySearchTool(BaseTool):
                 f"### {title}\nURL: {url}\nSummary: {summary_text}\nKey Excerpts: {excerpts_text}"
             )
 
-        return f"Search results for '{query}':\n\n" + "\n\n".join(blocks)
+        combined_findings = f"Search results for '{query}':\n\n" + "\n\n".join(blocks)
+
+        compressor = LLM(model=self.compressor_llm)
+        try:
+            compressed = compressor.call(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": COMPRESS_RESEARCH_SYSTEM_PROMPT.format(date=today),
+                    },
+                    {"role": "user", "content": combined_findings},
+                    {
+                        "role": "user",
+                        "content": COMPRESS_RESEARCH_TASK_PROMPT.format(research_topic=query),
+                    },
+                ]
+            )
+            return compressed
+        except Exception as e:
+            return (
+                f"Note: compression step failed ({e}); returning uncompressed "
+                f"summarized results below.\n\n{combined_findings}"
+            )
