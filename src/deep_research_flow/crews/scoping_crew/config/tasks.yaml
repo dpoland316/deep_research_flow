@@ -1,0 +1,87 @@
+assess_scope_task:
+  description: >
+    Review the research conversation so far, delimited below, and decide whether it
+    gives a research team everything needed to start deep research without guessing.
+
+
+    Conversation so far:
+    {conversation}
+
+
+    Judge the scope against these dimensions: the specific subject or question, 
+    any timeframe or recency requirement, and the
+    desired depth (quick overview vs. exhaustive deep dive).
+
+    If any of those dimensions is missing or ambiguous enough to meaningfully change
+    the research approach, you are not done. Identify every dimension that is
+    genuinely unclear — not just the single most important one — and fold all of them
+    into ONE clarifying message. That message may (and usually should, when more than
+    one dimension is unclear) bundle several concrete sub-questions together, e.g.
+    "What criteria matter most for judging this — price, quality, atmosphere? Should
+    this cover the whole city or a specific neighborhood?" The goal is to resolve
+    everything in a single round-trip with the requester rather than trickling out one
+    question per round. Never ask about something already reasonably inferable from
+    context.
+
+    If the scope is already clear enough to proceed — even if not every dimension was
+    stated explicitly, so long as a reasonable default is obvious — mark it as clear.
+    {final_round_notice}
+  expected_output: >
+    A decision on whether the scope is clear (true or false), and nothing else. If not
+    clear, also include one clarifying_question string that may bundle multiple
+    concrete sub-questions covering every dimension that's genuinely unclear. If
+    clear, leave clarifying_question empty.
+  agent: scoping_agent
+
+write_research_brief_task:
+  description: >
+    The scope of this request has just been confirmed as clear. Using the full
+    conversation below — the original request plus any clarifying question and
+    answer — translate it into a single, detailed, concrete research brief that will
+    guide a research team. Produce the brief itself, not a recap of the conversation.
+
+
+    Conversation so far:
+    {conversation}
+
+
+    Follow these rules when writing the brief:
+
+    1. Maximize specificity and detail. Include every preference, constraint, and
+    detail the user actually gave, and explicitly list the key attributes or
+    dimensions the research should consider.
+
+    2. When comprehensive research on this topic requires considering a dimension the
+    user never mentioned, call it out as an open consideration for the researcher to
+    weigh, not as an assumed preference — e.g. "consider all price ranges unless cost
+    constraints are specified" rather than assuming a budget. Only raise dimensions
+    that are genuinely necessary for comprehensive research in this domain; don't pad
+    the brief with irrelevant considerations.
+
+    3. Never invent a preference, constraint, or requirement the user didn't state. If
+    something was left unspecified, say so explicitly and instruct the researcher to
+    treat it as flexible rather than guessing at what they want.
+
+    4. Keep research scope (the topics/dimensions to investigate, which can be broader
+    than what the user explicitly mentioned) distinct from user preferences (specific
+    constraints or requirements, which must only include what the user actually
+    stated).
+
+    5. Write the brief in the first person, as if the user themself is making the
+    request.
+
+    6. On sources: if the user named specific sources to prioritize, call them out.
+    For product or travel research, prefer direct links to official/primary sites
+    (brand sites, manufacturer pages, or a reputable retailer like Amazon for user
+    reviews) over aggregator or SEO-blog content. For academic or scientific topics,
+    prefer the original paper or journal publication over secondary summaries or
+    survey papers. For a person, prefer their LinkedIn profile or personal website. If
+    the request was made in a specific language, prioritize sources published in that
+    language.
+  expected_output: >
+    A single first-person research brief, written as flowing prose (not a bulleted
+    requirements list), that a research team could act on directly without re-reading
+    the original conversation. It must incorporate every detail the user provided,
+    flag any genuinely necessary but unspecified dimensions as open considerations
+    rather than assumptions, and include sourcing guidance where relevant.
+  agent: scoping_agent
