@@ -7,9 +7,10 @@ out to sub-agents, and writes a consolidated, source-cited report to disk.
 
 Built incrementally in three phases — scoping (Phase 1), a single research +
 report-writing agent (Phase 2), and the lead/sub-agent delegation pattern
-(Phase 3). `SESSION_NOTES_PHASE1.md` and `SESSION_NOTES_PHASE2.md` are a
-narrative log of how those phases were built; this README documents the
-**current** implementation as it stands now.
+plus result compression (Phase 3). `SESSION_NOTES_PHASE1.md`,
+`SESSION_NOTES_PHASE2.md`, and `SESSION_NOTES_PHASE3.md` are a narrative log
+of how those phases were built; this README documents the **current**
+implementation as it stands now.
 
 ## Why this README has diagrams
 
